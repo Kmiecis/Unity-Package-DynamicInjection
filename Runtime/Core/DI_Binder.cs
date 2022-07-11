@@ -89,7 +89,7 @@ namespace Common.Injection
 
         private static void Install(FieldInfo field, object target, DI_Install attribute)
         {
-            var type = attribute.type ?? field.FieldType;
+            var type = field.FieldType;
 
             var dependency = field.GetValue(target);
 
@@ -121,8 +121,7 @@ namespace Common.Injection
 
             if (dependency == null)
             {
-                var args = attribute.args;
-                dependency = args != null ? Activator.CreateInstance(type, args) : Activator.CreateInstance(type);
+                dependency = Activator.CreateInstance(type, attribute.args);
             }
             
 #if ENABLE_DI_LOGS
@@ -130,7 +129,7 @@ namespace Common.Injection
 #endif
             field.SetValue(target, dependency);
 
-            AddDependency(type, dependency);
+            AddDependency(attribute.type ?? type, dependency);
         }
 
         private static void Uninstall(FieldInfo field, object target, DI_Install attribute)

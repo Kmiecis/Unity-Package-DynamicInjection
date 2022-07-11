@@ -12,6 +12,7 @@ namespace Common.Injection
         /// Allows defining a type by which dependency should be injected. Defaults to field type
         /// </summary>
         public readonly Type type;
+
         /// <summary>
         /// Allows defining a callback method to call upon dependency injection. Defaults to On{type}Inject
         /// </summary>

@@ -9,16 +9,16 @@ namespace Common.Injection
     public class DI_Install : Attribute
     {
         /// <summary>
-        /// Allows defining a type by which dependency should be installed
+        /// Allows defining a type by which dependency should be installed. Defaults to field type
         /// </summary>
         public readonly Type type;
 
         /// <summary>
-        /// Allows passing additional arguments to be passed into dependency constructor
+        /// Allows passing additional arguments to be passed into dependency constructor. Defaults to null
         /// </summary>
         public readonly object[] args;
         
-        public DI_Install(Type type = null, object[] args = null)
+        public DI_Install(Type type, object[] args)
         {
             this.type = type;
             this.args = args;
@@ -31,6 +31,11 @@ namespace Common.Injection
 
         public DI_Install(object[] args) :
             this(null, args)
+        {
+        }
+
+        public DI_Install() :
+            this(null, null)
         {
         }
     }
