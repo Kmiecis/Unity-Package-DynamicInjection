@@ -1,0 +1,14 @@
+{
+  "name": "com.common.dynamic.injection",
+  "displayName": "Common Dynamic Injection",
+  "author": {
+    "name": "Slawomir Kmiecik",
+    "email": "slawekkmiecik@gmail.com"
+  },
+  "description": "Common dynamic injection implementation",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kmiecis/unity-package-dynamicinjection"
+  }
+}
