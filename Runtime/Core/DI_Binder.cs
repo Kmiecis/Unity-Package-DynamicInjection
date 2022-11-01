@@ -196,10 +196,11 @@ namespace Common.Injection
             field.SetValue(target, null);
         }
 
-        public static void Bind(object target)
+        public static void Bind(object target, Type type = null)
         {
-            var type = target.GetType();
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var targetType = target.GetType();
+
+            var fields = targetType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             foreach (var field in fields)
             {
                 if (field.TryGetCustomAttribute<DI_Install>(out var attributeInstall))
@@ -211,12 +212,21 @@ namespace Common.Injection
                     Inject(field, target, attributeInject);
                 }
             }
+
+            var dependencyType = type ?? targetType;
+            AddDependency(dependencyType, target);
         }
 
-        public static void Unbind(object target)
+        public static void Bind<T>(object target)
         {
-            var type = target.GetType();
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Bind(target, typeof(T));
+        }
+
+        public static void Unbind(object target, Type type = null)
+        {
+            var targetType = target.GetType();
+
+            var fields = targetType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             foreach (var field in fields)
             {
                 if (field.TryGetCustomAttribute<DI_Inject>(out var attributeInject))
@@ -228,6 +238,14 @@ namespace Common.Injection
                     Uninstall(field, target, attributeInstall);
                 }
             }
+
+            var dependencyType = type ?? targetType;
+            RemoveDependency(dependencyType, target);
+        }
+
+        public static void Unbind<T>(object target)
+        {
+            Unbind(target, typeof(T));
         }
 
 #if UNITY_EDITOR
