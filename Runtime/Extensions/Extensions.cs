@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Common.Injection
 {
-    public static class Extensions
+    internal static class Extensions
     {
         #region FieldInfo
         public static bool TryGetCustomAttribute<T>(this FieldInfo self, out T attribute)
