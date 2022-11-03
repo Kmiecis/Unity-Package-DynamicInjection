@@ -40,5 +40,14 @@ namespace Common.Injection
             return self.TryGetAt(self.Count - 1, out item);
         }
         #endregion
+
+        #region Type
+        public static bool TryGetCustomAttribute<T>(this Type self, out T attribute)
+            where T : Attribute
+        {
+            attribute = self.GetCustomAttribute<T>();
+            return attribute != null;
+        }
+        #endregion
     }
 }

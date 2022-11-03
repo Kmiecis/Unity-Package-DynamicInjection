@@ -87,71 +87,32 @@ namespace Common.Injection
             }
         }
 
-        private static void Install(FieldInfo field, object target, DI_Install attribute)
+        private static void Install(object target, DI_Install attribute)
         {
-            var type = field.FieldType;
+            var type = attribute.type ?? target.GetType();
 
-            var dependency = field.GetValue(target);
-
-            // Unity-specific. Could be abstracted in the future by using DI_Provider attribute on methods
-            if (dependency == null)
-            {
-                if (type.IsSubclassOf(typeof(Component)))
-                {
-                    dependency = UnityEngine.Object.FindObjectOfType(type);
-
-                    if (dependency == null)
-                    {
-                        var gameObject = new GameObject($"{type.Name}(Inject)");
-                        dependency = gameObject.AddComponent(type);
-                    }
-                }
-            }
-            else
-            {
-                if (
-                    dependency is Component component &&
-                    component.gameObject.IsPrefab()
-                )
-                {
-                    dependency = UnityEngine.Object.Instantiate(component);
-                }
-            }
-            //
-
-            if (dependency == null)
-            {
-                dependency = Activator.CreateInstance(type, attribute.args);
-            }
-            
 #if ENABLE_DI_LOGS
-            DebugLog("Installing", field, target, dependency);
+            DebugLog("Installing", target);
 #endif
-            field.SetValue(target, dependency);
 
-            AddDependency(attribute.type ?? type, dependency);
+            AddDependency(type, target);
         }
 
-        private static void Uninstall(FieldInfo field, object target, DI_Install attribute)
+        private static void Uninstall(object target, DI_Install attribute)
         {
-            var type = attribute.type ?? field.FieldType;
-
-            var dependency = field.GetValue(target);
-
-            if (dependency != null)
-            {
-                RemoveDependency(type, dependency);
-            }
+            var type = attribute.type ?? target.GetType();
 
 #if ENABLE_DI_LOGS
-            DebugLog("Uninstalling", field, target);
+            DebugLog("Uninstalling", target);
 #endif
-            field.SetValue(target, null);
+
+            RemoveDependency(type, target);
         }
 
         private static void Inject(FieldInfo field, object target, DI_Inject attribute)
         {
             var type = attribute.type ?? field.FieldType;
+
             var callback = attribute.callback ?? "On" + type.Name + "Inject";
 
             void Update(object value)
@@ -193,59 +154,46 @@ namespace Common.Injection
 #if ENABLE_DI_LOGS
             DebugLog("Uninjecting", field, target);
 #endif
+
             field.SetValue(target, null);
         }
 
-        public static void Bind(object target, Type type = null)
+        public static void Bind(object target)
         {
-            var targetType = target.GetType();
+            var type = target.GetType();
 
-            var fields = targetType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            foreach (var field in fields)
+            if (type.TryGetCustomAttribute<DI_Install>(out var installAttribute))
             {
-                if (field.TryGetCustomAttribute<DI_Install>(out var attributeInstall))
-                {
-                    Install(field, target, attributeInstall);
-                }
-                else if (field.TryGetCustomAttribute<DI_Inject>(out var attributeInject))
-                {
-                    Inject(field, target, attributeInject);
-                }
+                Install(target, installAttribute);
             }
 
-            var dependencyType = type ?? targetType;
-            AddDependency(dependencyType, target);
-        }
-
-        public static void Bind<T>(object target)
-        {
-            Bind(target, typeof(T));
-        }
-
-        public static void Unbind(object target, Type type = null)
-        {
-            var targetType = target.GetType();
-
-            var fields = targetType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             foreach (var field in fields)
             {
-                if (field.TryGetCustomAttribute<DI_Inject>(out var attributeInject))
+                if (field.TryGetCustomAttribute<DI_Inject>(out var injectAttribute))
                 {
-                    Uninject(field, target, attributeInject);
-                }
-                else if (field.TryGetCustomAttribute<DI_Install>(out var attributeInstall))
-                {
-                    Uninstall(field, target, attributeInstall);
+                    Inject(field, target, injectAttribute);
                 }
             }
-
-            var dependencyType = type ?? targetType;
-            RemoveDependency(dependencyType, target);
         }
 
-        public static void Unbind<T>(object target)
+        public static void Unbind(object target)
         {
-            Unbind(target, typeof(T));
+            var type = target.GetType();
+
+            if (type.TryGetCustomAttribute<DI_Install>(out var installAttribute))
+            {
+                Uninstall(target, installAttribute);
+            }
+
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            foreach (var field in fields)
+            {
+                if (field.TryGetCustomAttribute<DI_Inject>(out var injectAttribute))
+                {
+                    Uninject(field, target, injectAttribute);
+                }
+            }
         }
 
 #if UNITY_EDITOR
@@ -275,6 +223,11 @@ namespace Common.Injection
         private static void DebugLog(string message, object field, object target)
         {
             UnityEngine.Debug.Log($"[{nameof(DI_Binder)}] {message} <color=#00FFFF>[{field}]</color> of <color=#FF8000>[{target}]</color>");
+        }
+
+        private static void DebugLog(string message, object target)
+        {
+            UnityEngine.Debug.Log($"[{nameof(DI_Binder)}] {message} <color=#FF8000>[{target}]</color>");
         }
 #endif
     }
