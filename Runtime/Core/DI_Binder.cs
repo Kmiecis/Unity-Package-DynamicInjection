@@ -5,7 +5,6 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.Callbacks;
 #endif
-using UnityEngine;
 
 namespace Common.Injection
 {
@@ -14,11 +13,34 @@ namespace Common.Injection
     /// </summary>
     public static class DI_Binder
     {
-        private class ListenerList : List<(object target, Action<object> callback)>
+        private class Listener
+        {
+            public FieldInfo field;
+            public object target;
+            public MethodInfo callback;
+
+            public void Call(object dependency)
+            {
+                if (callback != null)
+                {
+#if ENABLE_DI_LOGS
+                    DebugLog("Invoking", callback, target, dependency);
+#endif
+                    callback.Invoke(target, new object[] { dependency });
+                }
+
+#if ENABLE_DI_LOGS
+                DebugLog("Injecting", field, target, dependency);
+#endif
+                field.SetValue(target, dependency);
+            }
+        }
+
+        private class ListenerList : List<Listener>
         {
             public void Call(object dependency)
             {
-                this.ForEach(listener => listener.callback.Invoke(dependency));
+                this.ForEach(listener => listener.Call(dependency));
             }
 
             public void Remove(object target)
@@ -47,10 +69,10 @@ namespace Common.Injection
             return result;
         }
 
-        private static void AddListener(Type type, object target, Action<object> callback)
+        private static void AddListener(Type type, Listener listener)
         {
             var listeners = GetListeners(type);
-            listeners.Add((target, callback));
+            listeners.Add(listener);
         }
 
         private static void RemoveListeners(Type type, object target)
@@ -94,7 +116,6 @@ namespace Common.Injection
 #if ENABLE_DI_LOGS
             DebugLog("Installing", target);
 #endif
-
             AddDependency(type, target);
         }
 
@@ -105,43 +126,31 @@ namespace Common.Injection
 #if ENABLE_DI_LOGS
             DebugLog("Uninstalling", target);
 #endif
-
             RemoveDependency(type, target);
         }
 
         private static void Inject(FieldInfo field, object target, DI_Inject attribute)
         {
             var type = attribute.type ?? field.FieldType;
-
             var callback = attribute.callback ?? "On" + type.Name + "Inject";
 
-            void Update(object value)
+            var targetType = target.GetType();
+            var methodBindings = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var method = targetType.GetMethod(callback, methodBindings);
+
+            var listener = new Listener
             {
-                if (value != null)
-                {
-                    var targetType = target.GetType();
-                    var method = targetType.GetMethod(callback, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    if (method != null)
-                    {
-#if ENABLE_DI_LOGS
-                        DebugLog("Invoking", method, target, value);
-#endif
-                        method.Invoke(target, new object[] { value });
-                    }
-                }
+                field = field,
+                target = target,
+                callback = method
+            };
 
-#if ENABLE_DI_LOGS
-                DebugLog("Injecting", field, target, value);
-#endif
-                field.SetValue(target, value);
-            }
-
-            AddListener(type, target, Update);
+            AddListener(type, listener);
 
             var dependencies = GetDependencies(type);
             if (dependencies.TryGetLast(out var dependency))
             {
-                Update(dependency);
+                listener.Call(dependency);
             }
         }
 
@@ -154,7 +163,6 @@ namespace Common.Injection
 #if ENABLE_DI_LOGS
             DebugLog("Uninjecting", field, target);
 #endif
-
             field.SetValue(target, null);
         }
 
