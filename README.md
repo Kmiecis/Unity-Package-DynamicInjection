@@ -16,56 +16,123 @@ Git add this repository as a submodule inside your Unity project Assets folder:
 
 ## Examples
 
-We begin by defining a class that we want to use as an injection.
+We will use your typical manager classes to use as an injection.
 To allow switching for different implementations, we will use some common interface.
+
 ```cs
 public interface IManager
 {
     bool Value { get; }
 }
+```
 
+To install dependency we have to mark it by DI_Install attribute.
+
+```cs
+[DI_Install]
 public class TrueManager : IManager
 {
     public bool Value => true;
 }
+```
 
+By default, installation uses instance type for binding.
+We can override it by specyfing binding type in the attribute.
+
+```cs
+[DI_Install(typeof(IManager))]
 public class FalseManager : IManager
 {
     public bool Value => false;
 }
 ```
 
-In following cases, DI_ADependantBehaviour will handle binding in Awake method. This means both installation and injection.
+Installation is done by calling DI_Binder.Bind(...) method.
+Installation from the inside of class:
 
-To install it we have few options, depending on the use case.
-In case that we have a concrete instance:
 ```cs
-public class Managers : DI_ADependantBehaviour
+[DI_Install]
+public class MonoManager : MonoBehaviour
 {
-    [DI_Install]
-    public IManager manager = new TrueManager();
+    private void Awake()
+    {
+        DI_Binder.Bind(this);
+    }
+
+    private void OnDestroy()
+    {
+        DI_Binder.Unbind(this);
+    }
+}
+
+[DI_Install]
+public class CommonManager
+{
+    public CommonManager()
+    {
+        DI_Binder.Bind(this);
+    }
+
+    public void Unbind()
+    {
+        DI_Binder.Unbind(this);
+    }
 }
 ```
 
-In case that we want the instance to be created on the fly OR TrueManager would also be a MonoBehaviour:
+Installation from the outside of class:
+
 ```cs
-public class Managers : DI_ADependantBehaviour
+[DI_Install]
+public class MonoManager : MonoBehaviour
 {
-    [DI_Install(type: typeof(IManager))]
-    public TrueManager manager;
+}
+
+[DI_Install]
+public class CommonManager
+{
+}
+
+public class Managers : MonoBehaviour
+{
+    public MonoManager monoManagerPrefab;
+
+    private MonoManager _monoManager;
+    private CommonManager _commonManager;
+
+    private void Awake()
+    {
+        _monoManager = Instantiate(monoManagerPrefab);
+        DI_Binder.Bind(_monoManager);
+
+        _commonManager = new CommonManager();
+        DI_Binder.Bind(_commonManager);
+    }
+
+    private void OnDestroy()
+    {
+        DI_Binder.Unbind(_monoManager);
+        DI_Binder.Unbind(_commonManager);
+    }
 }
 ```
 
 Injecting works similarly.
+
 ```cs
-public class User : DI_ADependantBehaviour
+public class User
 {
     [DI_Inject]
     private IManager _manager;
 
+    public User()
+    {
+        DI_Binder.Bind(this);
+    }
+
     private void OnIManagerInject(IManager manager)
     {
-        // No need to assign the value. '_manager' will be set shortly. This is just convenient callback.
+        // No need to assign the value. Field '_manager' will be set shortly. This is just convenient callback.
         UnityEngine.Debug.Log("Received manager with value: " + manager.Value);
     }
 }

@@ -3,13 +3,13 @@
 namespace Common.Injection
 {
     /// <summary>
-    /// Marks a field to have it's value installed as a dependency by <see cref="DI_Binder"/>
+    /// Marks a class to have itself installed as a dependency by <see cref="DI_Binder"/>
     /// </summary>
     [AttributeUsage(AttributeTargets.Class)]
     public class DI_Install : Attribute
     {
         /// <summary>
-        /// Allows defining a type by which dependency should be installed. Defaults to field type
+        /// Allows defining a type by which dependency should be installed. Defaults to class type
         /// </summary>
         public readonly Type type;
 

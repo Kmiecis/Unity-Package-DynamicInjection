@@ -9,14 +9,14 @@ using UnityEditor.Callbacks;
 namespace Common.Injection
 {
     /// <summary>
-    /// Handles class fields marked by <see cref="DI_Inject"/> and <see cref="DI_Install"/> dependency binding
+    /// Handles class fields marked by <see cref="DI_Inject"/> and classes by <see cref="DI_Install"/> dependency binding
     /// </summary>
     public static class DI_Binder
     {
         private class Listener
         {
-            public FieldInfo field;
             public object target;
+            public FieldInfo field;
             public MethodInfo callback;
 
             public void Call(object dependency)
@@ -53,39 +53,108 @@ namespace Common.Injection
         {
         }
 
+        private class Reflection
+        {
+            public FieldInfo field;
+            public MethodInfo callback;
+            public DI_Inject inject;
+        }
+
+        private class ReflectionList
+        {
+            public List<Reflection> reflections;
+            public DI_Install install;
+        }
+
         private static Dictionary<Type, ListenerList> _listenerLists = new Dictionary<Type, ListenerList>();
         private static Dictionary<Type, DependencyList> _dependencyLists = new Dictionary<Type, DependencyList>();
+        private static Dictionary<Type, ReflectionList> _reflectionLists = new Dictionary<Type, ReflectionList>();
 
-        private static void Clear()
+        public static void Bind(object target)
         {
-            _listenerLists = new Dictionary<Type, ListenerList>();
-            _dependencyLists = new Dictionary<Type, DependencyList>();
+            var type = target.GetType();
+            var list = GetReflections(type);
+
+            if (list.install != null)
+            {
+                Install(target, list.install);
+            }
+
+            foreach (var reflection in list.reflections)
+            {
+                Inject(target, reflection.field, reflection.callback, reflection.inject);
+            }
         }
 
-        private static ListenerList GetListeners(Type type)
+        public static void Unbind(object target)
         {
-            if (!_listenerLists.TryGetValue(type, out var result))
-                _listenerLists[type] = result = new ListenerList();
-            return result;
+            var type = target.GetType();
+            var list = GetReflections(type);
+
+            if (list.install != null)
+            {
+                Uninstall(target, list.install);
+            }
+
+            foreach (var reflection in list.reflections)
+            {
+                Uninject(target, reflection.field, reflection.inject);
+            }
         }
 
-        private static void AddListener(Type type, Listener listener)
+        private static void Install(object target, DI_Install attribute)
         {
-            var listeners = GetListeners(type);
-            listeners.Add(listener);
+            var type = attribute.type ?? target.GetType();
+
+#if ENABLE_DI_LOGS
+            DebugLog("Installing", target);
+#endif
+
+            AddDependency(type, target);
         }
 
-        private static void RemoveListeners(Type type, object target)
+        private static void Uninstall(object target, DI_Install attribute)
         {
-            var listeners = GetListeners(type);
-            listeners.Remove(target);
+            var type = attribute.type ?? target.GetType();
+
+#if ENABLE_DI_LOGS
+            DebugLog("Uninstalling", target);
+#endif
+
+            RemoveDependency(type, target);
         }
 
-        private static DependencyList GetDependencies(Type type)
+        private static void Inject(object target, FieldInfo field, MethodInfo callback, DI_Inject attribute)
         {
-            if (!_dependencyLists.TryGetValue(type, out var result))
-                _dependencyLists[type] = result = new DependencyList();
-            return result;
+            var type = attribute.type ?? field.FieldType;
+
+            var listener = new Listener
+            {
+                target = target,
+                field = field,
+                callback = callback
+            };
+
+            AddListener(type, listener);
+
+            var dependencies = GetDependencies(type);
+            if (dependencies.TryGetLast(out var dependency))
+            {
+                listener.Call(dependency);
+            }
+        }
+
+        private static void Uninject(object target, FieldInfo field, DI_Inject attribute)
+        {
+            var type = attribute.type ?? field.FieldType;
+
+            RemoveListeners(type, target);
+
+#if ENABLE_DI_LOGS
+            DebugLog("Uninjecting", field, target);
+#endif
+
+            field.SetValue(target, null);
         }
 
         private static void AddDependency(Type type, object dependency)
@@ -109,99 +178,79 @@ namespace Common.Injection
             }
         }
 
-        private static void Install(object target, DI_Install attribute)
+        private static DependencyList GetDependencies(Type type)
         {
-            var type = attribute.type ?? target.GetType();
-
-#if ENABLE_DI_LOGS
-            DebugLog("Installing", target);
-#endif
-            AddDependency(type, target);
+            if (!_dependencyLists.TryGetValue(type, out var result))
+                _dependencyLists[type] = result = new DependencyList();
+            return result;
         }
 
-        private static void Uninstall(object target, DI_Install attribute)
+        private static void AddListener(Type type, Listener listener)
         {
-            var type = attribute.type ?? target.GetType();
-
-#if ENABLE_DI_LOGS
-            DebugLog("Uninstalling", target);
-#endif
-            RemoveDependency(type, target);
+            var listeners = GetListeners(type);
+            listeners.Add(listener);
         }
 
-        private static void Inject(FieldInfo field, object target, DI_Inject attribute)
+        private static void RemoveListeners(Type type, object target)
         {
-            var type = attribute.type ?? field.FieldType;
-            var callback = attribute.callback ?? "On" + type.Name + "Inject";
+            var listeners = GetListeners(type);
+            listeners.Remove(target);
+        }
 
-            var targetType = target.GetType();
+        private static ListenerList GetListeners(Type type)
+        {
+            if (!_listenerLists.TryGetValue(type, out var result))
+                _listenerLists[type] = result = new ListenerList();
+            return result;
+        }
+
+        private static ReflectionList GetReflections(Type type)
+        {
+            if (!_reflectionLists.TryGetValue(type, out var result))
+                _reflectionLists[type] = result = CreateReflections(type);
+            return result;
+        }
+
+        private static ReflectionList CreateReflections(Type type)
+        {
+            var result = new ReflectionList();
+            result.reflections = new List<Reflection>();
+
+            var fieldsBindings = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             var methodBindings = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            var method = targetType.GetMethod(callback, methodBindings);
-
-            var listener = new Listener
-            {
-                field = field,
-                target = target,
-                callback = method
-            };
-
-            AddListener(type, listener);
-
-            var dependencies = GetDependencies(type);
-            if (dependencies.TryGetLast(out var dependency))
-            {
-                listener.Call(dependency);
-            }
-        }
-
-        private static void Uninject(FieldInfo field, object target, DI_Inject attribute)
-        {
-            var type = attribute.type ?? field.FieldType;
-
-            RemoveListeners(type, target);
-
-#if ENABLE_DI_LOGS
-            DebugLog("Uninjecting", field, target);
-#endif
-            field.SetValue(target, null);
-        }
-
-        public static void Bind(object target)
-        {
-            var type = target.GetType();
 
             if (type.TryGetCustomAttribute<DI_Install>(out var installAttribute))
             {
-                Install(target, installAttribute);
+                result.install = installAttribute;
             }
 
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var fields = type.GetFields(fieldsBindings);
             foreach (var field in fields)
             {
                 if (field.TryGetCustomAttribute<DI_Inject>(out var injectAttribute))
                 {
-                    Inject(field, target, injectAttribute);
+                    var callback = injectAttribute.callback ?? $"On{type.Name}Inject";
+                    var method = type.GetMethod(callback, methodBindings);
+
+                    var reflection = new Reflection()
+                    {
+                        field = field,
+                        callback = method,
+                        inject = injectAttribute
+                    };
+
+                    result.reflections.Add(reflection);
                 }
             }
+
+            return result;
         }
 
-        public static void Unbind(object target)
+        private static void Clear()
         {
-            var type = target.GetType();
-
-            if (type.TryGetCustomAttribute<DI_Install>(out var installAttribute))
-            {
-                Uninstall(target, installAttribute);
-            }
-
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            foreach (var field in fields)
-            {
-                if (field.TryGetCustomAttribute<DI_Inject>(out var injectAttribute))
-                {
-                    Uninject(field, target, injectAttribute);
-                }
-            }
+            _listenerLists = new Dictionary<Type, ListenerList>();
+            _dependencyLists = new Dictionary<Type, DependencyList>();
+            _reflectionLists = new Dictionary<Type, ReflectionList>();
         }
 
 #if UNITY_EDITOR
