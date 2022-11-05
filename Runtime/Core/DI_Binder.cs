@@ -229,7 +229,8 @@ namespace Common.Injection
             {
                 if (field.TryGetCustomAttribute<DI_Inject>(out var injectAttribute))
                 {
-                    var callback = injectAttribute.callback ?? $"On{type.Name}Inject";
+                    var injectType = injectAttribute.type ?? field.FieldType;
+                    var callback = injectAttribute.callback ?? $"On{injectType.Name}Inject";
                     var method = type.GetMethod(callback, methodBindings);
 
                     var reflection = new Reflection()
