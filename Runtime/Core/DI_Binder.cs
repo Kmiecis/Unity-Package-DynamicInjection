@@ -9,7 +9,7 @@ using UnityEditor.Callbacks;
 namespace Common.Injection
 {
     /// <summary>
-    /// Handles class fields marked by <see cref="DI_Inject"/> and classes by <see cref="DI_Install"/> dependency binding
+    /// Handles class fields marked by <see cref="DI_Inject"/> or <see cref="DI_Update"/> and classes by <see cref="DI_Install"/> dependency binding
     /// </summary>
     public static class DI_Binder
     {
@@ -80,7 +80,7 @@ namespace Common.Injection
         public static void Bind(object target)
         {
             var type = target.GetType();
-            var list = GetReflection(type);
+            var list = EnsureReflection(type);
 
             if (list.install != null)
             {
@@ -99,7 +99,7 @@ namespace Common.Injection
         public static void Unbind(object target)
         {
             var type = target.GetType();
-            var list = GetReflection(type);
+            var list = EnsureReflection(type);
 
             if (list.install != null)
             {
@@ -168,7 +168,8 @@ namespace Common.Injection
 
         private static bool RefreshListener(Type type, Listener listener)
         {
-            if (GetDependencies(type).TryGetLast(out var dependency))
+            if (TryGetDependencies(type, out var dependencies) &&
+                dependencies.TryGetLast(out var dependency))
             {
                 listener.Call(dependency);
                 return true;
@@ -178,78 +179,136 @@ namespace Common.Injection
 
         private static bool RefreshDependency(Type type)
         {
-            if (GetDependencies(type).TryGetLast(out var dependency))
+            if (TryGetDependencies(type, out var dependencies) &&
+                dependencies.TryGetLast(out var dependency))
             {
-                var updaters = GetUpdaters(type);
-                updaters.Call(dependency);
+                if (TryGetUpdaters(type, out var updaters))
+                {
+                    updaters.Call(dependency);
+                }
 
-                var injectors = GetInjectors(type);
-                injectors.Call(dependency);
-                injectors.Clear();
+                if (TryGetInjectors(type, out var injectors))
+                {
+                    injectors.Call(dependency);
+                    injectors.Clear();
+
+                    RemoveInjectors(type);
+                }
 
                 return true;
             }
             return false;
         }
 
+        #region Dependencies
         private static void AddDependency(Type type, object dependency)
         {
-            var dependencies = GetDependencies(type);
-            dependencies.Add(dependency);
+            EnsureDependencies(type).Add(dependency);
         }
 
         private static void RemoveDependency(Type type, object dependency)
         {
-            var dependencies = GetDependencies(type);
-            dependencies.Remove(dependency);
+            if (TryGetDependencies(type, out var dependencies))
+            {
+                dependencies.Remove(dependency);
+                if (dependencies.Count == 0)
+                {
+                    RemoveDependencies(type);
+                }
+            }
         }
 
-        private static DependencyList GetDependencies(Type type)
+        private static bool TryGetDependencies(Type type, out DependencyList dependencies)
         {
-            if (!_dependencyLists.TryGetValue(type, out var result))
-                _dependencyLists[type] = result = new DependencyList();
-            return result;
+            return _dependencyLists.TryGetValue(type, out dependencies);
         }
 
+        private static DependencyList EnsureDependencies(Type type)
+        {
+            if (!_dependencyLists.TryGetValue(type, out var dependencies))
+                _dependencyLists[type] = dependencies = new DependencyList();
+            return dependencies;
+        }
+
+        private static void RemoveDependencies(Type type)
+        {
+            _dependencyLists.Remove(type);
+        }
+        #endregion
+
+        #region Updaters
         private static void AddUpdater(Type type, Listener updater)
         {
-            var updaters = GetUpdaters(type);
-            updaters.Add(updater);
+            EnsureUpdaters(type).Add(updater);
         }
 
-        private static void RemoveUpdater(Type type, object target)
+        private static void RemoveUpdater(Type type, object updater)
         {
-            var updaters = GetUpdaters(type);
-            updaters.Remove(target);
+            if (TryGetUpdaters(type, out var updaters))
+            {
+                updaters.Remove(updater);
+                if (updaters.Count == 0)
+                {
+                    RemoveUpdaters(type);
+                }
+            }
         }
 
-        private static ListenerList GetUpdaters(Type type)
+        private static bool TryGetUpdaters(Type type, out ListenerList updaters)
         {
-            if (!_updaterLists.TryGetValue(type, out var result))
-                _updaterLists[type] = result = new ListenerList();
-            return result;
+            return _updaterLists.TryGetValue(type, out updaters);
         }
 
+        private static ListenerList EnsureUpdaters(Type type)
+        {
+            if (!_updaterLists.TryGetValue(type, out var updaters))
+                _updaterLists[type] = updaters = new ListenerList();
+            return updaters;
+        }
+
+        private static void RemoveUpdaters(Type type)
+        {
+            _updaterLists.Remove(type);
+        }
+        #endregion
+
+        #region Injectors
         private static void AddInjector(Type type, Listener injector)
         {
-            var injectors = GetInjectors(type);
-            injectors.Add(injector);
+            EnsureInjectors(type).Add(injector);
         }
 
-        private static void RemoveInjector(Type type, object target)
+        private static void RemoveInjector(Type type, object injector)
         {
-            var injectors = GetInjectors(type);
-            injectors.Remove(target);
+            if (TryGetInjectors(type, out var injectors))
+            {
+                injectors.Remove(injector);
+                if (injectors.Count == 0)
+                {
+                    RemoveInjectors(type);
+                }
+            }
         }
 
-        private static ListenerList GetInjectors(Type type)
+        private static bool TryGetInjectors(Type type, out ListenerList injectors)
         {
-            if (!_injectorLists.TryGetValue(type, out var result))
-                _injectorLists[type] = result = new ListenerList();
-            return result;
+            return _injectorLists.TryGetValue(type, out injectors);
         }
 
-        private static ReflectionData GetReflection(Type type)
+        private static ListenerList EnsureInjectors(Type type)
+        {
+            if (!_injectorLists.TryGetValue(type, out var injectors))
+                _injectorLists[type] = injectors = new ListenerList();
+            return injectors;
+        }
+
+        private static void RemoveInjectors(Type type)
+        {
+            _injectorLists.Remove(type);
+        }
+        #endregion
+
+        private static ReflectionData EnsureReflection(Type type)
         {
             if (!_reflections.TryGetValue(type, out var result))
                 _reflections[type] = result = CreateReflection(type);
