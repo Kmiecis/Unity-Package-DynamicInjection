@@ -117,12 +117,13 @@ public class Managers : MonoBehaviour
 }
 ```
 
-Injecting works similarly.
+Injection works similarly.
+Injecting once:
 
 ```cs
 public class User
 {
-    [DI_Inject]
+    [DI_Inject(typeof(TrueManager))]
     private IManager _manager;
 
     public User()
@@ -133,7 +134,35 @@ public class User
     private void OnIManagerInject(IManager manager)
     {
         // No need to assign the value. Field '_manager' will be set shortly. This is just convenient callback.
-        UnityEngine.Debug.Log("Received manager with value: " + manager.Value);
+        if (manager.Value)
+        {   // Outputs if somewhere else TrueManager has been installed
+            UnityEngine.Debug.Log("Received TrueManager");
+        }
     }
 }
 ```
+
+Injecting updated:
+
+```cs
+public class User
+{
+    [DI_Update(typeof(FalseManager))]
+    private IManager _manager;
+
+    public User()
+    {
+        DI_Binder.Bind(this);
+    }
+
+    private void OnIManagerInject(IManager manager)
+    {
+        // No need to assign the value. Field '_manager' will be set shortly. This is just convenient callback.
+        if (manager.Value)
+        {   // Never happens
+            UnityEngine.Debug.Log("Received TrueManager");
+        }
+    }
+}
+```
+
