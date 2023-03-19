@@ -24,6 +24,11 @@ namespace Common.Injection
         #endregion
 
         #region List
+        public static T Last<T>(this List<T> self)
+        {
+            return self[self.Count - 1];
+        }
+
         public static bool TryGetAt<T>(this List<T> self, int index, out T item)
         {
             if (-1 < index && index < self.Count)

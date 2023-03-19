@@ -131,8 +131,10 @@ namespace Common.Injection
             DebugLog("Uninstalling", target);
 #endif
 
-            RemoveDependency(install.type, target);
-            RefreshDependency(install.type);
+            if (RemoveDependency(install.type, target))
+            {
+                RefreshDependency(install.type);
+            }
         }
 
         private static void Inject(object target, InjectData inject)
@@ -206,16 +208,21 @@ namespace Common.Injection
             EnsureDependencies(type).Add(dependency);
         }
 
-        private static void RemoveDependency(Type type, object dependency)
+        private static bool RemoveDependency(Type type, object dependency)
         {
             if (TryGetDependencies(type, out var dependencies))
             {
+                var changed = ReferenceEquals(dependencies.Last(), dependency);
+
                 dependencies.Remove(dependency);
                 if (dependencies.Count == 0)
                 {
                     RemoveDependencies(type);
                 }
+
+                return changed;
             }
+            return false;
         }
 
         private static bool TryGetDependencies(Type type, out DependencyList dependencies)
