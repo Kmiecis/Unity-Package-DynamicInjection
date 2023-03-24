@@ -324,20 +324,30 @@ namespace Common.Injection
 
         private static ReflectionData CreateReflection(Type type)
         {
+            var injects = CreateInjectDatas(type);
+            var install = CreateInstallData(type, injects);
+
             return new ReflectionData()
             {
-                install = CreateInstallData(type),
-                injects = CreateInjectDatas(type)
+                install = install,
+                injects = injects
             };
         }
 
-        private static InstallData CreateInstallData(Type type)
+        private static InstallData CreateInstallData(Type type, List<InjectData> injects)
         {
             if (type.TryGetCustomAttribute<DI_Install>(out var attribute))
             {
                 return new InstallData
                 {
                     type = attribute.type ?? type
+                };
+            }
+            if (injects == null)
+            {
+                return new InstallData
+                {
+                    type = type
                 };
             }
             return null;
