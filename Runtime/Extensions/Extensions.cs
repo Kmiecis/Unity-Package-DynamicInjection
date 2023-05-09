@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -52,6 +53,16 @@ namespace Common.Injection
         {
             attribute = self.GetCustomAttribute<T>();
             return attribute != null;
+        }
+
+        public static IEnumerable<FieldInfo> GetAllFields(this Type self, BindingFlags bindingAttr)
+        {
+            if (self != null)
+            {
+                return self.GetFields(bindingAttr | BindingFlags.DeclaredOnly)
+                    .Concat(self.BaseType.GetAllFields(bindingAttr));
+            }
+            return Enumerable.Empty<FieldInfo>();
         }
         #endregion
     }

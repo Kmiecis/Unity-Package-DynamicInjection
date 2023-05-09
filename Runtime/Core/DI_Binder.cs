@@ -357,24 +357,21 @@ namespace Common.Injection
         {
             const BindingFlags FIELD_BINDINGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-            var fields = type.GetFields(FIELD_BINDINGS);
+            var fields = type.GetAllFields(FIELD_BINDINGS);
 
-            if (fields.Length > 0)
+            var result = new List<InjectData>();
+            foreach (var field in fields)
             {
-                var result = new List<InjectData>();
-                foreach (var field in fields)
+                var inject = CreateInjectData(type, field);
+                if (inject != null)
                 {
-                    var inject = CreateInjectData(type, field);
-                    if (inject != null)
-                    {
-                        result.Add(inject);
-                    }
+                    result.Add(inject);
                 }
+            }
 
-                if (result.Count > 0)
-                {
-                    return result;
-                }
+            if (result.Count > 0)
+            {
+                return result;
             }
 
             return null;
