@@ -1,4 +1,4 @@
-# Common Dynamic Injection
+# Dynamic Injection
 
 ## Description
 A simple and lightweight dynamic dependency injection implementation.
@@ -12,7 +12,7 @@ Package Manager can be found inside the Unity Editor in the Window tab
 OR
 
 Git add this repository as a submodule inside your Unity project Assets folder:  
-`git submodule add https://github.com/Kmiecis/Unity-Package-DynamicInjection`
+`git submodule add https://github.com/Kmiecis/unity-package-dynamicinjection`
 
 ## Examples
 
