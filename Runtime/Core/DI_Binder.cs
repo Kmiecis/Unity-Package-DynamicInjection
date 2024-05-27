@@ -68,7 +68,7 @@ namespace Common.Injection
 
         private class ReflectionData
         {
-            public InstallData install;
+            public List<InstallData> installs;
             public List<InjectData> injects;
         }
 
@@ -82,9 +82,12 @@ namespace Common.Injection
             var type = target.GetType();
             var list = EnsureReflection(type);
 
-            if (list.install != null)
+            if (list.installs != null)
             {
-                Install(target, list.install);
+                foreach (var install in list.installs)
+                {
+                    Install(target, install);
+                }
             }
 
             if (list.injects != null)
@@ -101,9 +104,12 @@ namespace Common.Injection
             var type = target.GetType();
             var list = EnsureReflection(type);
 
-            if (list.install != null)
+            if (list.installs != null)
             {
-                Uninstall(target, list.install);
+                foreach (var install in list.installs)
+                {
+                    Uninstall(target, install);
+                }
             }
 
             if (list.injects != null)
@@ -325,32 +331,41 @@ namespace Common.Injection
         private static ReflectionData CreateReflection(Type type)
         {
             var injects = CreateInjectDatas(type);
-            var install = CreateInstallData(type, injects);
+            var installs = CreateInstallDatas(type, injects);
 
             return new ReflectionData()
             {
-                install = install,
+                installs = installs,
                 injects = injects
             };
         }
 
-        private static InstallData CreateInstallData(Type type, List<InjectData> injects)
+        private static List<InstallData> CreateInstallDatas(Type type, List<InjectData> injects)
         {
-            if (type.TryGetCustomAttribute<DI_Install>(out var attribute))
+            var result = new List<InstallData>();
+
+            foreach (var attribute in type.GetCustomAttributes<DI_Install>())
             {
-                return new InstallData
+                var data = new InstallData
                 {
                     type = attribute.type ?? type
                 };
+                result.Add(data);
             }
+            if (result.Count > 0)
+            {
+                return result;
+            }
+
             if (injects == null)
             {
-                return new InstallData
+                var data = new InstallData
                 {
                     type = type
                 };
+                result.Add(data);
             }
-            return null;
+            return result;
         }
         
         private static List<InjectData> CreateInjectDatas(Type type)
@@ -360,6 +375,7 @@ namespace Common.Injection
             var fields = type.GetAllFields(FIELD_BINDINGS);
 
             var result = new List<InjectData>();
+
             foreach (var field in fields)
             {
                 var inject = CreateInjectData(type, field);

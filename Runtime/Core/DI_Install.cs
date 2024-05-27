@@ -5,7 +5,7 @@ namespace Common.Injection
     /// <summary>
     /// Marks a class to have itself installed as a dependency by <see cref="DI_Binder"/>
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public class DI_Install : Attribute
     {
         /// <summary>
