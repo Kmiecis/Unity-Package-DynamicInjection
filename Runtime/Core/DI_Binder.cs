@@ -121,26 +121,46 @@ namespace Common.Injection
             }
         }
 
-        private static void Install(object target, InstallData install)
+        public static void Install(object target, Type type)
         {
 #if ENABLE_DI_LOGS
             DebugLog("Installing", target);
 #endif
 
-            AddDependency(install.type, target);
-            RefreshDependency(install.type);
+            AddDependency(type, target);
+            RefreshDependency(type);
         }
 
-        private static void Uninstall(object target, InstallData install)
+        public static void Install<T>(T target)
+        {
+            Install(target, typeof(T));
+        }
+
+        public static void Uninstall(object target, Type type)
         {
 #if ENABLE_DI_LOGS
             DebugLog("Uninstalling", target);
 #endif
 
-            if (RemoveDependency(install.type, target))
+            if (RemoveDependency(type, target))
             {
-                RefreshDependency(install.type);
+                RefreshDependency(type);
             }
+        }
+
+        public static void Uninstall<T>(T target)
+        {
+            Uninstall(target, typeof(T));
+        }
+
+        private static void Install(object target, InstallData install)
+        {
+            Install(target, install.type);
+        }
+
+        private static void Uninstall(object target, InstallData install)
+        {
+            Uninstall(target, install.type);
         }
 
         private static void Inject(object target, InjectData inject)
