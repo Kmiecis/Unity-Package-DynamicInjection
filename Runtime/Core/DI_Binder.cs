@@ -205,27 +205,26 @@ namespace Common.Injection
             return false;
         }
 
-        private static bool RefreshDependency(Type type)
+        private static void RefreshDependency(Type type)
         {
-            if (TryGetDependencies(type, out var dependencies) &&
-                dependencies.TryGetLast(out var dependency))
+            if (!TryGetDependencies(type, out var dependencies) ||
+                !dependencies.TryGetLast(out var dependency))
             {
-                if (TryGetUpdaters(type, out var updaters))
-                {
-                    updaters.Call(dependency);
-                }
-
-                if (TryGetInjectors(type, out var injectors))
-                {
-                    injectors.Call(dependency);
-                    injectors.Clear();
-
-                    RemoveInjectors(type);
-                }
-
-                return true;
+                dependency = null;
             }
-            return false;
+
+            if (TryGetUpdaters(type, out var updaters))
+            {
+                updaters.Call(dependency);
+            }
+
+            if (TryGetInjectors(type, out var injectors))
+            {
+                injectors.Call(dependency);
+                injectors.Clear();
+
+                RemoveInjectors(type);
+            }
         }
 
         #region Dependencies
@@ -238,9 +237,8 @@ namespace Common.Injection
         {
             if (TryGetDependencies(type, out var dependencies))
             {
-                var changed = ReferenceEquals(dependencies.Last(), dependency);
+                var changed = dependencies.Remove(dependency);
 
-                dependencies.Remove(dependency);
                 if (dependencies.Count == 0)
                 {
                     RemoveDependencies(type);
