@@ -166,3 +166,15 @@ public class User
 }
 ```
 
+Installation of external classes that can not be annotated is done by calling DI_Binder.Install(...) method.
+
+```cs
+public class Dependencies : MonoBehaviour
+{
+    public Canvas canvas;
+    
+    private void Start()
+    {
+        DI_Binder.Install(canvas);
+    }
+```
