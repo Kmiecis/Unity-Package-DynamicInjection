@@ -177,4 +177,5 @@ public class Dependencies : MonoBehaviour
     {
         DI_Binder.Install(canvas);
     }
+}
 ```
