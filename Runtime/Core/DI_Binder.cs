@@ -77,6 +77,9 @@ namespace Common.Injection
         private static Dictionary<Type, ListenerList> _updaterLists = new Dictionary<Type, ListenerList>();
         private static Dictionary<Type, ReflectionData> _reflections = new Dictionary<Type, ReflectionData>();
 
+        /// <summary>
+        /// Binds <paramref name="target"/> by handling Injects and Installs, defined by assigned attributes.
+        /// </summary>
         public static void Bind(object target)
         {
             var type = target.GetType();
@@ -99,6 +102,9 @@ namespace Common.Injection
             }
         }
 
+        /// <summary>
+        /// Unbinds <paramref name="target"/> by clearing Injects and Installs, defined by assigned attributes.
+        /// </summary>
         public static void Unbind(object target)
         {
             var type = target.GetType();
@@ -121,33 +127,43 @@ namespace Common.Injection
             }
         }
 
+        /// <summary>
+        /// Manually Installs <paramref name="target"/> as Dependency of <paramref name="type"/> .
+        /// </summary>
         public static void Install(object target, Type type)
         {
 #if ENABLE_DI_LOGS
             DebugLog("Installing", target);
 #endif
-
             AddDependency(type, target);
             RefreshDependency(type);
         }
 
+        /// <summary>
+        /// Manually Installs <paramref name="target"/> as Dependency of Type <typeparamref name="T"/>.
+        /// </summary>
         public static void Install<T>(T target)
         {
             Install(target, typeof(T));
         }
 
+        /// <summary>
+        /// Uninstalls manually assigned Dependency <paramref name="target"/> of <paramref name="type"/>.
+        /// </summary>
         public static void Uninstall(object target, Type type)
         {
 #if ENABLE_DI_LOGS
             DebugLog("Uninstalling", target);
 #endif
-
             if (RemoveDependency(type, target))
             {
                 RefreshDependency(type);
             }
         }
 
+        /// <summary>
+        /// Uninstalls manually assigned <paramref name="target"/> Dependency of Type <typeparamref name="T"/>.
+        /// </summary>
         public static void Uninstall<T>(T target)
         {
             Uninstall(target, typeof(T));
@@ -189,8 +205,8 @@ namespace Common.Injection
 #if ENABLE_DI_LOGS
             DebugLog("Uninjecting", target, inject.field);
 #endif
-
             RemoveUpdater(inject.type, target);
+
             inject.field.SetValue(target, null);
         }
 
