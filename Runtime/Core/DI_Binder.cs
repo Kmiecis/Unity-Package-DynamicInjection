@@ -372,7 +372,7 @@ namespace Common.Injection
 
             if (installs == null && injects == null)
             {   // Special case, for external installs
-                installs.Add(new InstallData { type = type });
+                installs = new List<InstallData> { new InstallData { type = type } };
             }
 
             return new ReflectionData()
