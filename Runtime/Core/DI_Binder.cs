@@ -212,7 +212,10 @@ namespace Common.Injection
 #endif
             RemoveUpdater(inject.type, target);
 
-            inject.field.SetValue(target, null);
+            if (inject.field != null)
+            {
+                inject.field.SetValue(target, null);
+            }
         }
 
         private static bool RefreshListener(Type type, Listener listener)
@@ -456,7 +459,14 @@ namespace Common.Injection
                 var method = type.GetMethod(callback, BINDINGS);
                 if (method != null)
                 {
-                    UnityEngine.Debug.LogWarning($"[{nameof(DI_Binder)}] implicit Inject is now Obsolete.\nMark the method {method.Name} explicitly with {nameof(DI_Inject)} or {nameof(DI_Update)} to keep the functionality working in the future.");
+                    if (!method.TryGetCustomAttribute<DI_Inject>(out _))
+                    {
+                        UnityEngine.Debug.LogWarning($"[{nameof(DI_Binder)}] implicit Inject is now Obsolete.\nMark the method {method.Name} explicitly with {nameof(DI_Inject)} or {nameof(DI_Update)} to keep the functionality working in the future.");
+                    }
+                    else
+                    {   // Ignore the Method, it will be handled in injects data creation from MethodInfo
+                        method = null;
+                    }
                 }
                 #endregion
 
