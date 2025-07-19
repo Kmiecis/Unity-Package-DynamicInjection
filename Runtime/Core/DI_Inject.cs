@@ -16,26 +16,28 @@ namespace Common.Injection
         /// <summary>
         /// Allows defining a callback method to call upon dependency injection. Defaults to On{type}Inject
         /// </summary>
+        [Obsolete]
         public readonly string callback;
 
+        [Obsolete("Use the Attribute on desired Method")]
         public DI_Inject(Type type, string callback)
         {
             this.type = type;
             this.callback = callback;
         }
 
-        public DI_Inject(Type type) :
-            this(type, null)
+        public DI_Inject(Type type)
         {
+            this.type = type;
         }
 
-        public DI_Inject(string callback) :
-            this(null, callback)
+        [Obsolete("Use the Attribute on desired Method")]
+        public DI_Inject(string callback)
         {
+            this.callback = callback;
         }
 
-        public DI_Inject() :
-            this(null, null)
+        public DI_Inject()
         {
         }
     }

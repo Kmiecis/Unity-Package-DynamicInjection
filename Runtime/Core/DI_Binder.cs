@@ -13,6 +13,8 @@ namespace Common.Injection
     /// </summary>
     public static class DI_Binder
     {
+        private const BindingFlags BINDINGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
         private class Listener
         {
             public object target;
@@ -416,8 +418,6 @@ namespace Common.Injection
 
         private static List<InjectData> CreateInjectDatas(Type type)
         {
-            const BindingFlags BINDINGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
             var result = new List<InjectData>();
 
             var fields = type.GetAllFields(BINDINGS);
@@ -449,10 +449,22 @@ namespace Common.Injection
             {
                 var injectType = attribute.type ?? field.FieldType;
 
+                #region Obsolete
+#pragma warning disable 0612
+                var callback = attribute.callback ?? $"On{injectType.Name}Inject";
+#pragma warning restore
+                var method = type.GetMethod(callback, BINDINGS);
+                if (method != null)
+                {
+                    UnityEngine.Debug.LogWarning($"[{nameof(DI_Binder)}] implicit Inject is now Obsolete.\nMark the method {method.Name} explicitly with {nameof(DI_Inject)} or {nameof(DI_Update)} to keep the functionality working in the future.");
+                }
+                #endregion
+
                 return new InjectData()
                 {
                     type = injectType,
                     field = field,
+                    method = method,
                     updater = attribute is DI_Update
                 };
             }
@@ -462,30 +474,17 @@ namespace Common.Injection
 
         private static InjectData CreateInjectData(Type type, MethodInfo method)
         {
-            if (method.TryGetMethodParameterType(out var parameterType))
+            if (method.TryGetMethodParameterType(out var parameterType) &&
+                method.TryGetCustomAttribute<DI_Inject>(out var attribute))
             {
-                if (method.TryGetCustomAttribute<DI_Inject>(out var attribute))
-                {
-                    var injectType = attribute.type ?? parameterType;
+                var injectType = attribute.type ?? parameterType;
 
-                    return new InjectData()
-                    {
-                        type = injectType,
-                        method = method,
-                        updater = attribute is DI_Update
-                    };
-                }
-                // Backward compatibility
-                else if (method.Name == $"On{parameterType.Name}Inject")
+                return new InjectData()
                 {
-                    UnityEngine.Debug.LogWarning($"[{nameof(DI_Binder)}] implicit Inject is now Obsolete.\nMark the method {method.Name} explicitly with {nameof(DI_Inject)} or {nameof(DI_Update)} to keep the functionality working in the future.");
-
-                    return new InjectData()
-                    {
-                        type = parameterType,
-                        method = method
-                    };
-                }
+                    type = injectType,
+                    method = method,
+                    updater = attribute is DI_Update
+                };
             }
 
             return null;
