@@ -1,7 +1,7 @@
 # Dynamic Injection
 
 ## Description
-A simple and lightweight dynamic dependency injection implementation.
+A simple and lightweight Dynamic Dependency Injection implementation.
 
 ## Installation
 
@@ -16,8 +16,8 @@ Git add this repository as a submodule inside your Unity project Assets folder:
 
 ## Examples
 
-We will use your typical manager classes to use as an injection.
-To allow switching for different implementations, we will use some common interface.
+We will use plain manager classes to use as an injection.
+To allow switching for different implementations, we will add common interface.
 
 ```cs
 public interface IManager
@@ -36,7 +36,7 @@ public class TrueManager : IManager
 }
 ```
 
-By default, installation uses instance type for binding.
+By default, installation process uses type directly under the attribute.
 We can override it by specyfing binding type in the attribute.
 
 ```cs
@@ -45,6 +45,14 @@ public class FalseManager : IManager
 {
     public bool Value => false;
 }
+```
+
+OR by alternating the base class / interface.
+
+```cs
+[DI_Install]
+public interface IManager
+...
 ```
 
 Installation is done by calling DI_Binder.Bind(...) method.
@@ -117,12 +125,13 @@ public class Managers : MonoBehaviour
 }
 ```
 
-Injection works similarly.
+Injection works similarly and an instance can be assigned to a Field, a Method, or both.
 Injecting once:
 
 ```cs
 public class User
 {
+    // Injects only if somewhere TrueManager has been installed
     [DI_Inject(typeof(TrueManager))]
     private IManager _manager;
 
@@ -131,11 +140,11 @@ public class User
         DI_Binder.Bind(this);
     }
 
-    private void OnIManagerInject(IManager manager)
+    [DI_Inject]
+    private void OnInject(IManager manager)
     {
-        // No need to assign the value. Field '_manager' will be set shortly. This is just convenient callback.
         if (manager.Value)
-        {   // Outputs if somewhere else TrueManager has been installed
+        {   // Outputs if somewhere TrueManager has been installed
             UnityEngine.Debug.Log("Received TrueManager");
         }
     }
@@ -147,7 +156,8 @@ Injecting updated:
 ```cs
 public class User
 {
-    [DI_Update(typeof(FalseManager))]
+    // Injects only if somewhere IManager has been installed
+    [DI_Update]
     private IManager _manager;
 
     public User()
@@ -155,12 +165,12 @@ public class User
         DI_Binder.Bind(this);
     }
 
-    private void OnIManagerInject(IManager manager)
+    [DI_Update]
+    private void OnInject(TrueManager manager)
     {
-        // No need to assign the value. Field '_manager' will be set shortly. This is just convenient callback.
-        if (manager.Value)
+        if (!manager.Value)
         {   // Never happens
-            UnityEngine.Debug.Log("Received TrueManager");
+            UnityEngine.Debug.Log("Received FalseManager");
         }
     }
 }

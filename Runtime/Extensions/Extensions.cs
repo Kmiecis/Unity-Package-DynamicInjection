@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
 
 namespace Common.Injection
 {
@@ -17,19 +16,23 @@ namespace Common.Injection
         }
         #endregion
 
-        #region GameObject
-        public static bool IsPrefab(this GameObject self)
+        #region MethodInfo
+        public static bool TryGetCustomAttribute<T>(this MethodInfo self, out T attribute)
+            where T : Attribute
         {
-            return self.scene.rootCount == 0;
+            attribute = self.GetCustomAttribute<T>();
+            return attribute != null;
+        }
+
+        public static bool TryGetMethodParameterType(this MethodInfo self, out Type type)
+        {
+            var parameters = self.GetParameters();
+            type = parameters.Length == 1 ? parameters[0].ParameterType : null;
+            return type != null;
         }
         #endregion
 
         #region List
-        public static T Last<T>(this List<T> self)
-        {
-            return self[self.Count - 1];
-        }
-
         public static bool TryGetAt<T>(this List<T> self, int index, out T item)
         {
             if (-1 < index && index < self.Count)
@@ -56,6 +59,16 @@ namespace Common.Injection
                     .Concat(self.BaseType.GetAllFields(bindingAttr));
             }
             return Enumerable.Empty<FieldInfo>();
+        }
+
+        public static IEnumerable<MethodInfo> GetAllMethods(this Type self, BindingFlags bindingAttr)
+        {
+            if (self != null)
+            {
+                return self.GetMethods(bindingAttr | BindingFlags.DeclaredOnly)
+                .Concat(self.BaseType.GetAllMethods(bindingAttr));
+            }
+            return Enumerable.Empty<MethodInfo>();
         }
         #endregion
     }

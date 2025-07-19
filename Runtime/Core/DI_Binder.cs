@@ -17,22 +17,25 @@ namespace Common.Injection
         {
             public object target;
             public FieldInfo field;
-            public MethodInfo callback;
+            public MethodInfo method;
 
             public virtual void Call(object dependency)
             {
-                if (callback != null && dependency != null)
+                if (method != null && dependency != null)
                 {
 #if ENABLE_DI_LOGS
-                    DebugLog("Invoking", target, callback, dependency);
+                    DebugLog("Invoking", target, method, dependency);
 #endif
-                    callback.Invoke(target, new object[] { dependency });
+                    method.Invoke(target, new object[] { dependency });
                 }
 
+                if (field != null)
+                {
 #if ENABLE_DI_LOGS
-                DebugLog("Injecting", target, field, dependency);
+                    DebugLog("Injecting", target, field, dependency);
 #endif
-                field.SetValue(target, dependency);
+                    field.SetValue(target, dependency);
+                }
             }
         }
 
@@ -62,7 +65,7 @@ namespace Common.Injection
         {
             public Type type;
             public FieldInfo field;
-            public MethodInfo callback;
+            public MethodInfo method;
             public bool updater;
         }
 
@@ -185,7 +188,7 @@ namespace Common.Injection
             {
                 target = target,
                 field = inject.field,
-                callback = inject.callback
+                method = inject.method
             };
 
             var injected = RefreshListener(inject.type, listener);
@@ -365,7 +368,12 @@ namespace Common.Injection
         private static ReflectionData CreateReflection(Type type)
         {
             var injects = CreateInjectDatas(type);
-            var installs = CreateInstallDatas(type, injects);
+            var installs = CreateInstallDatas(type);
+
+            if (installs == null && injects == null)
+            {   // Special case, for external installs
+                installs.Add(new InstallData { type = type });
+            }
 
             return new ReflectionData()
             {
@@ -374,42 +382,45 @@ namespace Common.Injection
             };
         }
 
-        private static List<InstallData> CreateInstallDatas(Type type, List<InjectData> injects)
+        private static List<InstallData> CreateInstallDatas(Type type)
         {
             var result = new List<InstallData>();
 
+            CreateInstallDatas(type, result);
+
+            return result.Count > 0 ? result : null;
+        }
+
+        private static void CreateInstallDatas(Type type, List<InstallData> result)
+        {
             foreach (var attribute in type.GetCustomAttributes<DI_Install>())
             {
                 var data = new InstallData
                 {
                     type = attribute.type ?? type
                 };
+
                 result.Add(data);
-            }
-            if (result.Count > 0)
-            {
-                return result;
             }
 
-            if (injects == null)
+            foreach (var item in type.GetInterfaces())
             {
-                var data = new InstallData
-                {
-                    type = type
-                };
-                result.Add(data);
+                CreateInstallDatas(item, result);
             }
-            return result;
+
+            if (type.BaseType != null)
+            {
+                CreateInstallDatas(type.BaseType, result);
+            }
         }
-        
+
         private static List<InjectData> CreateInjectDatas(Type type)
         {
-            const BindingFlags FIELD_BINDINGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-            var fields = type.GetAllFields(FIELD_BINDINGS);
+            const BindingFlags BINDINGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
             var result = new List<InjectData>();
 
+            var fields = type.GetAllFields(BINDINGS);
             foreach (var field in fields)
             {
                 var inject = CreateInjectData(type, field);
@@ -419,31 +430,62 @@ namespace Common.Injection
                 }
             }
 
-            if (result.Count > 0)
+            var methods = type.GetAllMethods(BINDINGS);
+            foreach (var method in methods)
             {
-                return result;
+                var inject = CreateInjectData(type, method);
+                if (inject != null)
+                {
+                    result.Add(inject);
+                }
             }
 
-            return null;
+            return result.Count > 0 ? result : null;
         }
 
         private static InjectData CreateInjectData(Type type, FieldInfo field)
         {
-            const BindingFlags METHOD_BINDINGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-            if (field.TryGetCustomAttribute<DI_Inject>(out var injectAttribute))
+            if (field.TryGetCustomAttribute<DI_Inject>(out var attribute))
             {
-                var injectType = injectAttribute.type ?? field.FieldType;
-                var callback = injectAttribute.callback ?? $"On{injectType.Name}Inject";
-                var method = type.GetMethod(callback, METHOD_BINDINGS);
+                var injectType = attribute.type ?? field.FieldType;
 
                 return new InjectData()
                 {
                     type = injectType,
                     field = field,
-                    callback = method,
-                    updater = injectAttribute is DI_Update
+                    updater = attribute is DI_Update
                 };
+            }
+
+            return null;
+        }
+
+        private static InjectData CreateInjectData(Type type, MethodInfo method)
+        {
+            if (method.TryGetMethodParameterType(out var parameterType))
+            {
+                if (method.TryGetCustomAttribute<DI_Inject>(out var attribute))
+                {
+                    var injectType = attribute.type ?? parameterType;
+
+                    return new InjectData()
+                    {
+                        type = injectType,
+                        method = method,
+                        updater = attribute is DI_Update
+                    };
+                }
+                // Backward compatibility
+                else if (method.Name == $"On{parameterType.Name}Inject")
+                {
+                    UnityEngine.Debug.LogWarning($"[{nameof(DI_Binder)}] implicit Inject is now Obsolete.\nMark the method {method.Name} explicitly with {nameof(DI_Inject)} or {nameof(DI_Update)} to keep the functionality working in the future.");
+
+                    return new InjectData()
+                    {
+                        type = parameterType,
+                        method = method
+                    };
+                }
             }
 
             return null;

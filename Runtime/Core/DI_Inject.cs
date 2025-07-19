@@ -3,9 +3,9 @@
 namespace Common.Injection
 {
     /// <summary>
-    /// Marks a field to have a dependency injected into, once, by <see cref="DI_Binder"/>
+    /// Marks a field or a method to have a dependency injected into, once, by <see cref="DI_Binder"/>
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method)]
     public class DI_Inject : Attribute
     {
         /// <summary>
