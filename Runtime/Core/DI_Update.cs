@@ -8,23 +8,24 @@ namespace Common.Injection
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method)]
     public class DI_Update : DI_Inject
     {
+        [Obsolete("Use the Attribute on desired Method")]
         public DI_Update(Type type, string callback) :
             base(type, callback)
         {
         }
 
         public DI_Update(Type type) :
-            base(type, null)
+            base(type)
         {
         }
 
+        [Obsolete("Use the Attribute on desired Method")]
         public DI_Update(string callback) :
-            base(null, callback)
+            base(callback)
         {
         }
 
-        public DI_Update() :
-            base(null, null)
+        public DI_Update()
         {
         }
     }
